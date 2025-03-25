@@ -1,0 +1,80 @@
+WITH RevenueByEmployee AS (
+
+    SELECT
+        p.staff_id,
+        SUM(p.amount) AS total_revenue
+    FROM payment p
+    WHERE YEAR(p.payment_date) = 2017
+    GROUP BY p.staff_id
+),
+EmployeeStore AS (
+
+    SELECT
+        p.staff_id,
+        p.store_id,
+        p.payment_date
+    FROM payment p
+    WHERE YEAR(p.payment_date) = 2017
+    AND p.payment_date = (
+        SELECT MAX(payment_date)
+        FROM payment
+        WHERE staff_id = p.staff_id
+        AND YEAR(payment_date) = 2017
+    )
+)
+
+SELECT
+    r.staff_id,
+    r.total_revenue,
+    es.store_id
+FROM RevenueByEmployee r
+JOIN EmployeeStore es
+    ON r.staff_id = es.staff_id
+ORDER BY r.total_revenue DESC
+LIMIT 3;
+--------------------------------------
+
+
+WITH RevenueByEmployee AS (
+    -- Step 1: Calculate total revenue for each employee in 2017
+    SELECT
+        p.staff_id,
+        SUM(p.amount) AS total_revenue,
+        MAX(p.payment_date) AS last_payment_date
+    FROM payment p
+    WHERE YEAR(p.payment_date) = 2017
+    GROUP BY p.staff_id
+),
+LastStore AS (
+    -- Step 2: Identify the last store worked by each employee in 2017
+    SELECT
+        p.staff_id,
+        p.store_id,
+        p.payment_date
+    FROM payment p
+    WHERE YEAR(p.payment_date) = 2017
+    AND p.payment_date = (
+        SELECT MAX(payment_date)
+        FROM payment
+        WHERE staff_id = p.staff_id
+        AND YEAR(payment_date) = 2017
+    )
+),
+EmployeeStoreRevenue AS (
+    -- Step 3: Join the total revenue with the last store worked by the employee
+    SELECT
+        r.staff_id,
+        r.total_revenue,
+        l.store_id
+    FROM RevenueByEmployee r
+    JOIN LastStore l
+        ON r.staff_id = l.staff_id
+)
+-- Step 4: Get the top 3 employees by revenue
+SELECT
+    es.staff_id,
+    es.total_revenue,
+    es.store_id
+FROM EmployeeStoreRevenue es
+ORDER BY es.total_revenue DESC
+LIMIT 3;
